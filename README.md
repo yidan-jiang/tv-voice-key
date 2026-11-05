@@ -21,7 +21,18 @@ never reaches the PC, so sit within earshot of the PC.
 - Windows 10 or 11 with Windows PowerShell 5.1 (built in)
 - `adb` from Google's [platform-tools](https://developer.android.com/tools/releases/platform-tools)
 - An Android TV with network debugging on, and this PC allowed once on the TV
-- The app's window open (it can be behind other windows, not minimized)
+- The app installed; the script starts it if it's closed and restores it if minimized
+
+### Always talk to the same conversation
+
+Keep one conversation for the TV, for example one named `TV`, and pass its sidebar name:
+
+```powershell
+.\tv-voice-key.ps1 -TvHost <tv-ip> -SessionName "TV"
+```
+
+Each press that starts a recording opens that conversation first, so voice messages never land in whatever
+else is on screen. If it's renamed or archived, the script says so in the log and uses the conversation on screen.
 
 ## Use
 
@@ -70,6 +81,9 @@ powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\
 | `-ComposerName` | `提示词` | The message box's name, for auto-send |
 | `-AutoSend` | `$true` | Press Enter after the stop press |
 | `-StableMs` | `1000` | How long the transcript must stay unchanged before sending |
+| `-SessionName` | | A conversation's name in the app's sidebar: every recording starts there, whatever is on screen |
+| `-LaunchApp` | `$true` | Start the app if its window is closed, restore it if minimized |
+| `-AppId` | | The app's Windows ID to start (`Get-StartApps`); looked up by `-WindowTitle` when empty |
 | `-Hotkey` | | Hotkey mode: [SendKeys](https://learn.microsoft.com/dotnet/api/system.windows.forms.sendkeys) syntax, e.g. `^+{SPACE}` |
 | `-ListControls` | | Print the window's buttons and text boxes, then exit |
 

@@ -53,6 +53,15 @@ param(
     # Transcript unchanged this long = finished; give up after SendTimeoutSec.
     [int]$StableMs = 1000,
     [int]$SendTimeoutSec = 20,
+    # Button mode: switch to this conversation (its name in the app's sidebar) before recording, so every
+    # voice message lands in the same one. Empty: use whatever conversation is on screen.
+    [string]$SessionName = '',
+
+    # Start the app when its window isn't open, and restore it when minimized.
+    [bool]$LaunchApp = $true,
+    # Windows app ID to start (see Get-StartApps). Empty: look it up by -WindowTitle.
+    [string]$AppId = '',
+    [int]$LaunchTimeoutSec = 45,
 
     # Hotkey mode: SendKeys syntax, sent to the foreground window (^ = Ctrl, + = Shift, % = Alt).
     [string]$Hotkey = '',
@@ -137,13 +146,72 @@ function Send-Message {
     } catch { Log "! send failed: $($_.Exception.Message)" }
 }
 
+function Wait-MicButton([int]$seconds) {
+    $deadline = (Get-Date).AddSeconds($seconds)
+    do {
+        $b = Get-MicButton
+        if ($b) { return $b }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    return $null
+}
+
+# Open the app if its window is gone, and bring it back if minimized.
+function Ensure-App {
+    $wins = Get-AppWindows
+    if ($wins.Count -eq 0) {
+        $id = $AppId
+        if (-not $id) { $id = (Get-StartApps | Where-Object { $_.Name -eq $WindowTitle } | Select-Object -First 1).AppID }
+        if (-not $id) { Log "! '$WindowTitle' isn't open and its app ID wasn't found - pass -AppId"; return }
+        Log "starting $WindowTitle"
+        Start-Process explorer.exe "shell:AppsFolder\$id"
+        [void](Wait-MicButton $LaunchTimeoutSec)
+        return
+    }
+    foreach ($w in $wins) {
+        try {
+            $wp = $w.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+            if ($wp.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Minimized) {
+                $wp.SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Normal)
+                Log "restored $WindowTitle from minimized"
+                Start-Sleep -Milliseconds 800
+            }
+        } catch {}
+    }
+}
+
+# Open the conversation named -SessionName from the sidebar.
+function Switch-Session {
+    $cond = New-Object System.Windows.Automation.AndCondition(
+        (New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, $CT::Button)),
+        (New-Object System.Windows.Automation.PropertyCondition($UIA::NameProperty, $SessionName)))
+    foreach ($w in Get-AppWindows) {
+        $item = $w.FindFirst($Scope::Descendants, $cond)
+        if ($item) {
+            try {
+                $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                Start-Sleep -Milliseconds 700
+                return $true
+            } catch { Log "! couldn't open '$SessionName': $($_.Exception.Message)"; return $false }
+        }
+    }
+    Log "! conversation '$SessionName' not in the sidebar (renamed, archived, or sidebar hidden?) - using the one on screen"
+    return $false
+}
+
 function On-VoiceKey {
     if ($Mode -eq 'Hotkey') {
         try { [System.Windows.Forms.SendKeys]::SendWait($Hotkey); Log "sent hotkey $Hotkey" } catch { Log "! hotkey failed: $($_.Exception.Message)" }
         return
     }
+    if ($LaunchApp) { Ensure-App }
     $b = Get-MicButton
-    if (-not $b) { Log "! mic button not found - is '$WindowTitle' open and not minimized? Check the names with -ListControls"; return }
+    if (-not $b) { Log "! mic button not found - is '$WindowTitle' open? Check the names with -ListControls"; return }
+    # Starting a recording: go to the fixed conversation first. (A stop press stays where the recording is.)
+    if ($SessionName -and $b.Current.Name -ne $RecordingButtonName) {
+        if (Switch-Session) { $b = Wait-MicButton 10 }
+        if (-not $b) { Log '! mic button not found after switching conversation'; return }
+    }
     try {
         $wasRecording = ($b.Current.Name -eq $RecordingButtonName)
         $b.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
