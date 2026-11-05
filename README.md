@@ -7,6 +7,8 @@ Made for [Claude](https://claude.ai/download) desktop, and configurable for othe
 mic button or a dictation shortcut (Codex, DeepSeek, ChatGPT and so on: see [Other apps](#other-apps)).
 Built alongside a TV cleaned up with [cleanyourtv](https://github.com/Gathin23/cleanyourtv).
 
+![Claude desktop listening after a press of the remote's voice key](docs/recording.png)
+
 ```
 remote voice key -> TV logs the key -> adb logcat on the PC -> mic button in the app (UI Automation) -> Enter
 ```
