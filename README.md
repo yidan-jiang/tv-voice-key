@@ -110,6 +110,13 @@ The default `-LogPattern` matches what Xiaomi's firmware logs. To find yours, ru
   TV can control it, so allow only your own computers.
 - Speech goes to the app you point it at, exactly as if you had clicked its mic.
 
+## Credits
+
+Made by [yidan-jiang](https://github.com/yidan-jiang) with
+[Claude](https://claude.ai) (Anthropic), working in [Claude Code](https://claude.com/claude-code):
+Claude wrote the script and this README and tested them on the TV. Its commits carry a
+`Co-Authored-By: Claude` line.
+
 ## Licence
 
 [MIT](LICENSE)
